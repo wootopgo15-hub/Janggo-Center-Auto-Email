@@ -32,11 +32,6 @@ function LoginPage({ onLogin }: { onLogin: (email: string) => void }) {
 
     setIsLoading(true);
     try {
-      if (email === 'admin' && password === '1234') {
-        onLogin(email);
-        return;
-      }
-
       const scriptUrl = "https://script.google.com/macros/s/AKfycbzkGgdRY1G_t1C0MQHpwHlvaZ0k0ZrEkGECfFtwGtR75-3RVsse1nubuktGXpru0jtP/exec";
       const response = await fetch(`${scriptUrl}?action=checkLogin&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
       
@@ -59,10 +54,10 @@ function LoginPage({ onLogin }: { onLogin: (email: string) => void }) {
     <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-neutral-200">
         <div className="text-center mb-8">
-          <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="text-blue-600" size={32} />
+          <div className="mx-auto mb-6 flex justify-center">
+            <img src="https://drive.google.com/thumbnail?id=16LfvyGSajAgHXj43HtbuWRqglt5aZAdE&sz=w400" alt="Logo" className="h-16 object-contain" referrerPolicy="no-referrer" />
           </div>
-          <h1 className="text-2xl font-bold text-neutral-900">교육 문서 자동화 시스템</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">센터 자동 메일보내기 프로그램</h1>
           <p className="text-neutral-500 mt-2">로그인 후 이용해주세요</p>
         </div>
 
