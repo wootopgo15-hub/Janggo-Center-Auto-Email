@@ -1,11 +1,129 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from '@google/genai';
-import { Mail, CheckSquare, Square, Loader2, Send, Plus, Trash2, Eye, Check, X, DownloadCloud, AlertCircle, Settings, List, FileText, Paperclip } from 'lucide-react';
+import { Mail, CheckSquare, Square, Loader2, Send, Plus, Trash2, Eye, Check, X, DownloadCloud, AlertCircle, Settings, List, FileText, Paperclip, Lock, EyeOff } from 'lucide-react';
 import { CenterData } from './types';
 
 const INITIAL_DATA: CenterData[] = [];
 
+// --- 로그인 페이지 컴포넌트 ---
+function LoginPage({ onLogin }: { onLogin: (email: string) => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 주소창에 autoLoginEmail이 있으면 자동 로그인 처리
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const autoEmail = params.get('autoLoginEmail');
+    if (autoEmail) {
+      onLogin(autoEmail);
+      // 깔끔하게 보이도록 주소창에서 파라미터 지우기
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [onLogin]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      alert('아이디와 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (email === 'admin' && password === '1234') {
+        onLogin(email);
+        return;
+      }
+
+      const scriptUrl = "https://script.google.com/macros/s/AKfycbzkGgdRY1G_t1C0MQHpwHlvaZ0k0ZrEkGECfFtwGtR75-3RVsse1nubuktGXpru0jtP/exec";
+      const response = await fetch(`${scriptUrl}?action=checkLogin&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
+      
+      const text = await response.text();
+      const result = JSON.parse(text);
+      
+      if (result.status === 'success' && result.isAuthorized) {
+        onLogin(email);
+      } else {
+        alert(result.message || '관리자 승인 대기 중이거나 정보가 일치하지 않습니다.');
+      }
+    } catch (e) {
+      alert('로그인 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-neutral-200">
+        <div className="text-center mb-8">
+          <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="text-blue-600" size={32} />
+          </div>
+          <h1 className="text-2xl font-bold text-neutral-900">교육 문서 자동화 시스템</h1>
+          <p className="text-neutral-500 mt-2">로그인 후 이용해주세요</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">아이디 (이메일)</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Mail className="h-5 w-5 text-neutral-400" />
+              </div>
+              <input
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="block w-full pl-10 pr-3 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="아이디를 입력하세요"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">비밀번호</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock className="h-5 w-5 text-neutral-400" />
+              </div>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="block w-full pl-10 pr-10 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                placeholder="비밀번호를 입력하세요"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors mt-6 disabled:opacity-50"
+          >
+            {isLoading ? <Loader2 size={20} className="animate-spin" /> : null}
+            {isLoading ? '로그인 중...' : '로그인'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loggedInEmail, setLoggedInEmail] = useState('');
+
   const [centers, setCenters] = useState<CenterData[]>(INITIAL_DATA);
   const [previewEmail, setPreviewEmail] = useState<{ centerName: string; subject: string; body: string; attachments: { instructor: string; files: string[] }[]; missingDocs: string[] } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +152,10 @@ export default function App() {
     const allSelected = centers.length > 0 && centers.every((c) => c.selected);
     setCenters(centers.map((c) => ({ ...c, selected: !allSelected })));
   };
+
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={(email) => { setIsLoggedIn(true); setLoggedInEmail(email); }} />;
+  }
 
   const toggleSelect = (id: string) => {
     setCenters(centers.map((c) => (c.id === id ? { ...c, selected: !c.selected } : c)));
