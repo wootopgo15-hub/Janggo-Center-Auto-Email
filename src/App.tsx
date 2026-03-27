@@ -264,7 +264,11 @@ export default function App() {
       })
       .filter(item => item.name !== '');
 
-    const instructorsStr = instructorSubjects.map(inst => phoneMap[inst.name] ? `${inst.name}(${phoneMap[inst.name]})` : inst.name).join(', ');
+    const instructorsStr = instructorSubjects.map(inst => {
+      const strippedName = inst.name.replace(/[0-9]+$/, '').trim();
+      const phone = phoneMap[inst.name] || phoneMap[strippedName];
+      return phone ? `${inst.name}(${phone})` : inst.name;
+    }).join(', ');
     
     const parsedSubject = emailSubject
       .replace(/{month}/g, globalMonth)
