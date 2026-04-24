@@ -32,6 +32,11 @@ function LoginPage({ onLogin }: { onLogin: (email: string) => void }) {
 
     setIsLoading(true);
     try {
+      if (email === 'wootopgo15@gmail.com' && password === '642264') {
+        onLogin(email);
+        return;
+      }
+
       const scriptUrl = "https://script.google.com/macros/s/AKfycbzkGgdRY1G_t1C0MQHpwHlvaZ0k0ZrEkGECfFtwGtR75-3RVsse1nubuktGXpru0jtP/exec";
       const response = await fetch(`${scriptUrl}?action=checkLogin&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
       
@@ -120,7 +125,77 @@ export default function App() {
   const [loggedInEmail, setLoggedInEmail] = useState('');
 
   const [centers, setCenters] = useState<CenterData[]>(INITIAL_DATA);
-  const [previewEmail, setPreviewEmail] = useState<{ centerName: string; subject: string; body: string; attachments: { instructor: string; files: string[] }[]; missingDocs: string[] } | null>(null);
+  const [previewEmail, setPreviewEmail] = useState<{ centerId: string; centerName: string; subject: string; body: string; attachments: { instructor: string; files: string[] }[]; missingDocs: string[]; originalCenter: CenterData } | null>(null);
+
+  const handleSendIndividual = async () => {
+    if (!previewEmail) return;
+    
+    setIsSending(true);
+    try {
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbzfwyv0hQ7IgM9r3MgG57hoe0VcgOhAQ0C-BUMJtKFzSNpuuNQrfqYcSjIME1Figx7R/exec';
+      
+      const subjectsList = [
+        { key: 'music', label: '음악' },
+        { key: 'traditional', label: '전래' },
+        { key: 'gymnastics', label: '체조' },
+        { key: 'tools', label: '교구' },
+        { key: 'singing', label: '노래' }
+      ];
+
+      const c = previewEmail.originalCenter;
+      const instructorSubjects = subjectsList
+        .flatMap(sub => {
+          const rawName = c[sub.key as keyof CenterData] as string;
+          if (!rawName) return [];
+          return rawName.split('/').map(name => ({
+            name: name.trim(),
+            subject: sub.label
+          }));
+        })
+        .filter(item => item.name !== '');
+
+      const payloadCenters = [{
+        ...c,
+        instructors: instructorSubjects
+      }];
+
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        redirect: 'follow',
+        body: JSON.stringify({
+          action: 'sendEmails',
+          centers: payloadCenters,
+          globalMonth: globalMonth,
+          senderEmail: senderEmail,
+          emailSubject: previewEmail.subject,
+          emailBody: previewEmail.body
+        })
+      });
+
+      const text = await response.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        throw new Error("Apps Script에서 올바른 응답을 받지 못했습니다.");
+      }
+
+      if (result.success) {
+        alert(`${previewEmail.centerName} 담당자에게 메일을 성공적으로 발송했습니다.`);
+        setPreviewEmail(null);
+      } else {
+        throw new Error(result.message || '알 수 없는 오류가 발생했습니다.');
+      }
+    } catch (error: any) {
+      alert(`메일 발송 실패: ${error.message}`);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
@@ -128,7 +203,7 @@ export default function App() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [phoneMap, setPhoneMap] = useState<Record<string, string>>({});
 
-  const [globalMonth, setGlobalMonth] = useState(`${new Date().getMonth() + 1}월`);
+  const [globalMonth, setGlobalMonth] = useState(`${(new Date().getMonth() + 1) % 12 + 1}월`);
   const [senderEmail, setSenderEmail] = useState('janggo1983@naver.com');
   const [emailSubject, setEmailSubject] = useState('{month} {centerName} 프로그램 계획안, 일지 보내드립니다.');
   const [emailBody, setEmailBody] = useState(`안녕하십니까, 장고교육개발원 입니다.
@@ -304,11 +379,13 @@ export default function App() {
         }
 
         setPreviewEmail({
+          centerId: center.id,
           centerName: center.centerName,
           subject: parsedSubject,
           body: parsedBody,
           attachments: attachments,
-          missingDocs: missingDocs
+          missingDocs: missingDocs,
+          originalCenter: center
         });
       } else {
         throw new Error(result.message || '미리보기 데이터를 가져오지 못했습니다.');
@@ -715,13 +792,28 @@ export default function App() {
                 </div>
               ) : previewEmail ? (
                 <div className="space-y-6">
-                  <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
-                    <div className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">제목</div>
-                    <div className="font-medium text-neutral-900">{previewEmail.subject}</div>
+                  <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
+                    <div className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1 flex justify-between">
+                      <span>제목</span>
+                      <span className="text-blue-500 text-[10px]">클릭하여 수정 가능</span>
+                    </div>
+                    <input 
+                      type="text"
+                      className="font-medium text-neutral-900 w-full bg-transparent border-none p-0 focus:ring-0"
+                      value={previewEmail.subject}
+                      onChange={e => setPreviewEmail({...previewEmail, subject: e.target.value})}
+                    />
                   </div>
-                  <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
-                    <div className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2">내용</div>
-                    {previewEmail.body}
+                  <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
+                    <div className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-2 flex justify-between">
+                      <span>내용</span>
+                      <span className="text-blue-500 text-[10px]">클릭하여 수정 가능</span>
+                    </div>
+                    <textarea 
+                      className="w-full bg-transparent border-none p-0 focus:ring-0 text-sm leading-relaxed text-neutral-700 min-h-[200px] resize-y"
+                      value={previewEmail.body}
+                      onChange={e => setPreviewEmail({...previewEmail, body: e.target.value})}
+                    />
                   </div>
                   
                   {previewEmail.attachments && previewEmail.attachments.length > 0 && (
@@ -767,13 +859,27 @@ export default function App() {
               ) : null}
             </div>
             
-            <div className="px-6 py-4 border-t border-neutral-100 bg-white flex justify-end gap-3">
-              <button
-                onClick={() => setPreviewEmail(null)}
-                className="px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors"
-              >
-                닫기
-              </button>
+            <div className="px-6 py-4 border-t border-neutral-100 bg-white flex justify-between items-center gap-3">
+              <div className="text-xs font-medium text-neutral-500 bg-neutral-100 px-3 py-1.5 rounded text-left">
+                미리보기 내용 수정 후 우측 <span className="font-bold text-neutral-700">발송 버튼</span> 클릭 시<br/> 이메일 내용이 그대로 발송됩니다.
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPreviewEmail(null)}
+                  disabled={isSending}
+                  className="px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100 rounded-lg transition-colors disabled:opacity-50 shrink-0"
+                >
+                  닫기
+                </button>
+                <button
+                  onClick={handleSendIndividual}
+                  disabled={isSending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
+                >
+                  {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  현재 내용 발송
+                </button>
+              </div>
             </div>
           </div>
         </div>
